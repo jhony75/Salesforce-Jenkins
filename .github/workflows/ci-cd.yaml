@@ -123,7 +123,7 @@ jobs:
         run: |
           if [ "${APEX_TESTS}" != "all" ]; then
             echo "Running specified tests: ${APEX_TESTS}"
-            sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunSpecifiedTests --runtests "$APEX_TESTS" --json
+            sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunSpecifiedTests --run-tests "$APEX_TESTS" --json
           else
             sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunLocalTests --json
           fi
@@ -134,7 +134,7 @@ jobs:
         run: |
           if [ "${APEX_TESTS}" != "all" ]; then
             echo "Running check-only deploy for UAT..."
-            sf project deploy validate --source-dir changed-sources/force-app --test-level RunSpecifiedTests --runtests "$APEX_TESTS" --json
+            sf project deploy validate --source-dir changed-sources/force-app --test-level RunSpecifiedTests --run-tests "$APEX_TESTS" --json
           else
             sf project deploy validate --source-dir changed-sources/force-app --test-level NoTestRun --json
           fi
