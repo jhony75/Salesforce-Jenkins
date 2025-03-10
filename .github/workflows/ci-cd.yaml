@@ -107,7 +107,7 @@ jobs:
     
       # Upload do relatório SARIF para visualização no PR
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: changed-sources/apexScanResults.sarif
     
