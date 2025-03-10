@@ -76,15 +76,15 @@ jobs:
           if [ "$BASE_BRANCH" = "develop" ]; then
             echo "Using secret auth file for Develop org..."
             echo "${{ secrets.DEVELOP_AUTH_FILE }}" > sfdxAuthUrl.txt
-            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt --instance-url ${{ secrets.DEVELOP_ORG_URL }}
+            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt
           elif [ "$BASE_BRANCH" = "UAT" ]; then
             echo "Using secret auth file for UAT org..."
             echo "${{ secrets.UAT_AUTH_FILE }}" > sfdxAuthUrl.txt
-            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt --instance-url ${{ secrets.UAT_ORG_URL }}
+            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt
           elif [ "$BASE_BRANCH" = "main" ]; then
             echo "Using secret auth file for Production org..."
             echo "${{ secrets.PROD_AUTH_FILE }}" > sfdxAuthUrl.txt
-            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt --instance-url ${{ secrets.PROD_ORG_URL }}
+            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt
           else
             echo "Branch not recognized for authentication."
             exit 1
