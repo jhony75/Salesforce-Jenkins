@@ -48,10 +48,16 @@ jobs:
           ~/sfdx/bin/sfdx version
     
       # Instalação do sfdx-git-delta plugin
+      #- name: 'Installing sfdx git delta'
+      #  run: | 
+      #    echo y | sfdx plugins:install sfdx-git-delta
+      #    sfdx plugins 
+
+      # Instalação do sfdx-git-delta plugin com nova sintaxe
       - name: 'Installing sfdx git delta'
         run: | 
-          echo y | sfdx plugins:install sfdx-git-delta
-          sfdx plugins 
+          echo y | sf plugins install sfdx-git-delta
+          sf plugins 
     
       # Instalação do Java (necessário para etapas subsequentes)
       - name: 'Installing java'
@@ -61,7 +67,7 @@ jobs:
     
       # Instalação do SFDX scanner
       - name: 'Installing SFDX scanner'
-        run: sfdx plugins:install @salesforce/sfdx-scanner
+        run: sf plugins install @salesforce/sfdx-scanner
     
       # Recupera o arquivo de autenticação a partir do secret e faz login na org conforme a branch de destino
       - name: 'Generate auth file and login to org'
@@ -88,13 +94,13 @@ jobs:
       - name: 'Create delta packages for new, modified or deleted metadata'
         run: | 
           mkdir changed-sources
-          sfdx sgd:source:delta --to "HEAD" --from "HEAD^" --output changed-sources/ --generate-delta --source force-app/ 
+          sf sgd source delta --to "HEAD" --from "HEAD^" --output changed-sources/ --generate-delta --source force-app/ 
     
       # Executa o SFDX scanner para gerar o relatório SARIF
       - name: 'Scan code'
         run: |
           cd changed-sources
-          sfdx scanner:run --format sarif --target './**/*.cls' --category "Design,Best Practices,Performance" --outfile 'apexScanResults.sarif'  
+          sf scanner run --format sarif --target './**/*.cls' --category "Design,Best Practices,Performance" --outfile 'apexScanResults.sarif'  
           cd ..
     
       # Upload do relatório SARIF para visualização no PR
