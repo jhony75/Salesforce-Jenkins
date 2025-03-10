@@ -105,7 +105,7 @@ jobs:
           elif [ "$BASE_BRANCH" = "UAT" ]; then
             if [ "${APEX_TESTS}" != "all" ]; then
               echo "Deploying to UAT org with specified tests: ${APEX_TESTS}"
-              sf project deploy --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$APEX_TESTS" --json
+              sf project deploy start --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$APEX_TESTS" --json
             else
               echo "Deploying to UAT org without running tests..."
               sf project deploy --source-dir changed-sources/force-app --test-level RunLocalTests --json
