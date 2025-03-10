@@ -132,15 +132,22 @@ jobs:
       - name: 'Check-only deploy delta changes - run tests for UAT'
         if: ${{ github.event.pull_request.base.ref == 'UAT' }}
         run: |
-          echo "Running check-only deploy for UAT..."
-          sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --json
+          if [ "${APEX_TESTS}" != "all" ]; then
+            echo "Running check-only deploy for UAT..."
+            sf project deploy validate --source-dir changed-sources/force-app --test-level RunSpecifiedTests --runtests "$APEX_TESTS" --json
+          else
+            sf project deploy validate --source-dir changed-sources/force-app --test-level NoTestRun --json
+          fi
+
+        #sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --json
     
       # Para main, executa todos os testes da org
       - name: 'Check-only deploy delta changes - run tests for main'
         if: ${{ github.event.pull_request.base.ref == 'main' }}
         run: |
           echo "Running all tests for Production (main branch)"
-          sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunAllTestsInOrg --json
+          sf project deploy validate --source--dir changed-sources/force-app --test-level RunAllTestsInOrg --json
+        # sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunAllTestsInOrg --json
     
       # Deploy de mudanças destrutivas, se houver
       - name: 'Deploy destructive changes (if any)'
