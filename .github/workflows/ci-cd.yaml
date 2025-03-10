@@ -151,8 +151,8 @@ jobs:
         # sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunAllTestsInOrg --json
     
       # Deploy de mudanças destrutivas, se houver
-      - name: 'Deploy destructive changes (if any)'
-        run: sfdx force:mdapi:deploy -d "changed-sources/destructiveChanges" --checkonly --ignorewarnings 
+      #- name: 'Deploy destructive changes (if any)'
+      #  run: sfdx force:mdapi:deploy -d "changed-sources/destructiveChanges" --checkonly --ignorewarnings 
     
       # Limpeza do arquivo de autenticação
       - name: 'Clean up auth file'
