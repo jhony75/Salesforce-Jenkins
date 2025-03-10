@@ -1,5 +1,8 @@
 # Unique name for this workflow
 name: Validate PR on develop, UAT and main branches
+permissions:
+  contents: read
+  security-events: write
 
 # Definition when the workflow should run
 on:
