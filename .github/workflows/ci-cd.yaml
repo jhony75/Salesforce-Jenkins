@@ -18,9 +18,9 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' }}
     steps:
       # Instalação do Node.js (versão 14)
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: '14'
+          node-version: '20'
     
       # Checkout do código com fetch-depth: 0
       - name: 'Checkout source code'
