@@ -1,0 +1,138 @@
+# Unique name for this workflow
+name: Validate PR on develop, UAT and main branches
+
+# Definition when the workflow should run
+on:
+  pull_request:
+    types: [opened, synchronize]
+    # Agora roda para as branches develop, UAT e main
+    branches: [ develop, UAT, main ]
+    # Só roda se houver mudanças na pasta force-app
+    paths:
+      - 'force-app/**'
+            
+# Jobs to be executed when the above conditions are met
+jobs:
+  validate-deployment-on-org:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    steps:
+      # Instalação do Node.js (versão 14)
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '14'
+    
+      # Checkout do código com fetch-depth: 0
+      - name: 'Checkout source code'
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+            
+      # Leitura do corpo do PR para extrair os testes a serem executados
+      - name: 'Read PR Body'
+        env:
+          PR_BODY: ${{github.event.pull_request.body}}
+        run: |
+          echo "$PR_BODY" > ./pr_body.txt
+          node ./parsePR.js              
+          TESTS=$(cat testsToRun.txt)       
+          echo "APEX_TESTS=$TESTS" >> $GITHUB_ENV
+                  
+      # Instalação do Salesforce CLI
+      - name: 'Install Salesforce CLI'
+        run: |
+          wget https://developer.salesforce.com/media/salesforce-cli/sfdx/channels/stable/sfdx-linux-x64.tar.xz
+          mkdir ~/sfdx
+          tar xJf sfdx-linux-x64.tar.xz -C ~/sfdx --strip-components 1
+          echo "$HOME/sfdx/bin" >> $GITHUB_PATH
+          ~/sfdx/bin/sfdx version
+    
+      # Instalação do sfdx-git-delta plugin
+      - name: 'Installing sfdx git delta'
+        run: | 
+          echo y | sfdx plugins:install sfdx-git-delta
+          sfdx plugins 
+    
+      # Instalação do Java (necessário para etapas subsequentes)
+      - name: 'Installing java'
+        run: |
+          sudo apt-get update
+          sudo apt install -y default-jdk
+    
+      # Instalação do SFDX scanner
+      - name: 'Installing SFDX scanner'
+        run: sfdx plugins:install @salesforce/sfdx-scanner
+    
+      # Recupera o arquivo de autenticação a partir do secret e faz login na org conforme a branch de destino
+      - name: 'Generate auth file and login to org'
+        run: |
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          if [ "$BASE_BRANCH" = "develop" ]; then
+            echo "Using secret auth file for Develop org..."
+            echo "${{ secrets.DEVELOP_AUTH_FILE }}" > sfdxAuthUrl.txt
+            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt --instance-url ${{ secrets.DEVELOP_ORG_URL }}
+          elif [ "$BASE_BRANCH" = "UAT" ]; then
+            echo "Using secret auth file for UAT org..."
+            echo "${{ secrets.UAT_AUTH_FILE }}" > sfdxAuthUrl.txt
+            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt --instance-url ${{ secrets.UAT_ORG_URL }}
+          elif [ "$BASE_BRANCH" = "main" ]; then
+            echo "Using secret auth file for Production org..."
+            echo "${{ secrets.PROD_AUTH_FILE }}" > sfdxAuthUrl.txt
+            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt --instance-url ${{ secrets.PROD_ORG_URL }}
+          else
+            echo "Branch not recognized for authentication."
+            exit 1
+          fi
+    
+      # Cria um pacote delta contendo apenas o metadata alterado
+      - name: 'Create delta packages for new, modified or deleted metadata'
+        run: | 
+          mkdir changed-sources
+          sfdx sgd:source:delta --to "HEAD" --from "HEAD^" --output changed-sources/ --generate-delta --source force-app/ 
+    
+      # Executa o SFDX scanner para gerar o relatório SARIF
+      - name: 'Scan code'
+        run: |
+          cd changed-sources
+          sfdx scanner:run --format sarif --target './**/*.cls' --category "Design,Best Practices,Performance" --outfile 'apexScanResults.sarif'  
+          cd ..
+    
+      # Upload do relatório SARIF para visualização no PR
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: changed-sources/apexScanResults.sarif
+    
+      # Check-only deploy com testes definidos, de acordo com a branch de destino:
+      # Para develop, roda os testes especificados no PR
+      - name: 'Check-only deploy delta changes - run tests for develop'
+        if: ${{ github.event.pull_request.base.ref == 'develop' }}
+        run: |
+          if [ "${APEX_TESTS}" != "all" ]; then
+            echo "Running specified tests: ${APEX_TESTS}"
+            sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunSpecifiedTests --runtests "$APEX_TESTS" --json
+          else
+            sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunLocalTests --json
+          fi
+    
+      # Para UAT, realiza o check-only deploy sem a validação de cobertura
+      - name: 'Check-only deploy delta changes - run tests for UAT'
+        if: ${{ github.event.pull_request.base.ref == 'UAT' }}
+        run: |
+          echo "Running check-only deploy for UAT..."
+          sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --json
+    
+      # Para main, executa todos os testes da org
+      - name: 'Check-only deploy delta changes - run tests for main'
+        if: ${{ github.event.pull_request.base.ref == 'main' }}
+        run: |
+          echo "Running all tests for Production (main branch)"
+          sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunAllTestsInOrg --json
+    
+      # Deploy de mudanças destrutivas, se houver
+      - name: 'Deploy destructive changes (if any)'
+        run: sfdx force:mdapi:deploy -d "changed-sources/destructiveChanges" --checkonly --ignorewarnings 
+    
+      # Limpeza do arquivo de autenticação
+      - name: 'Clean up auth file'
+        run: rm -f sfdxAuthUrl.txt
