@@ -108,12 +108,13 @@ jobs:
           sf scanner run --format sarif --target './**/*.cls' --category "Design,Best Practices,Performance" --outfile 'apexScanResults.sarif'  
           cd ..
     
+      # TODO: Descomentar
       # Upload do relatório SARIF para visualização no PR
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: changed-sources/apexScanResults.sarif
-          token: ${{secrets.PAT_TOKEN}}
+      #- name: Upload SARIF file
+      #  uses: github/codeql-action/upload-sarif@v3
+      #  with:
+      #    sarif_file: changed-sources/apexScanResults.sarif
+      #    token: ${{secrets.PAT_TOKEN}}
     
       # Check-only deploy com testes definidos, de acordo com a branch de destino:
       # Para develop, roda os testes especificados no PR
