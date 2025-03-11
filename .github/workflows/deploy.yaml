@@ -108,21 +108,21 @@ jobs:
               sf project deploy start --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$APEX_TESTS" --json
             else
               echo "Deploying to UAT org without running tests..."
-              sf project deploy --source-dir changed-sources/force-app --test-level RunLocalTests --json
+              sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests --json
             fi
           elif [ "$BASE_BRANCH" = "main" ]; then
             echo "Deploying to Production (main branch) running all tests..."
-            sf project deploy --source-dir changed-sources/force-app --test-level RunAllTestsInOrg --json
+            sf project deploy start --source-dir changed-sources/force-app --test-level RunAllTestsInOrg --json
           fi
 
       # Caso haja mudanças destrutivas, faz o deploy das mesmas
-      - name: Deploy destructive changes (if any)
-        run: |
-          if [ -d "changed-sources/destructiveChanges" ]; then
-            sfdx force:mdapi:deploy -d "changed-sources/destructiveChanges" --ignorewarnings
-          else
-            echo "No destructive changes found."
-          fi
+      #- name: Deploy destructive changes (if any)
+      #  run: |
+      #    if [ -d "changed-sources/destructiveChanges" ]; then
+      #      sfdx force:mdapi:deploy -d "changed-sources/destructiveChanges" --ignorewarnings
+      #    else
+      #      echo "No destructive changes found."
+      #    fi
 
       # Limpeza do arquivo de autenticação para não deixar dados sensíveis expostos
       - name: Clean up auth file
