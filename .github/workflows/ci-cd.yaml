@@ -147,7 +147,7 @@ jobs:
         if: ${{ github.event.pull_request.base.ref == 'main' }}
         run: |
           echo "Running all tests for Production (main branch)"
-          sf project deploy validate --source--dir changed-sources/force-app --test-level RunAllTestsInOrg --json
+          sf project deploy validate --source-dir changed-sources/force-app --test-level RunAllTestsInOrg --json
         # sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunAllTestsInOrg --json
     
       # Deploy de mudanças destrutivas, se houver
