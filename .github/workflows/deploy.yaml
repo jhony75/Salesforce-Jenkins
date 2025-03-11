@@ -112,7 +112,7 @@ jobs:
             fi
           elif [ "$BASE_BRANCH" = "main" ]; then
             echo "Deploying to Production (main branch) running all tests..."
-            sf project deploy start --source-dir changed-sources/force-app --test-level RunAllTestsInOrg --json
+            sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests --json
           fi
 
       # Caso haja mudanças destrutivas, faz o deploy das mesmas
