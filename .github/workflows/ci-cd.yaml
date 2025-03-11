@@ -135,6 +135,7 @@ jobs:
         run: |
           if [ "${APEX_TESTS}" != "all" ]; then
             echo "Running check-only deploy for UAT..."
+            echo "Running specified tests: ${APEX_TESTS}"
             sf project deploy validate --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$APEX_TESTS" --json
           else
             sf project deploy validate --source-dir changed-sources/force-app --test-level NoTestRun --json
