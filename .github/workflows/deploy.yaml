@@ -1,0 +1,129 @@
+name: Deploy to Org on Merge
+
+on:
+  push:
+    branches:
+      - develop
+      - UAT
+      - main
+    paths:
+      - 'force-app/**'
+
+jobs:
+  deploy-to-org:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout do código com todo o histórico
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Configuração do Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Lê a configuração dos testes (arquivo gerado no PR, se existir)
+      - name: Read Test Configuration (if exists)
+        id: read_tests
+        run: |
+          if [ -f "testsToRun.txt" ]; then
+            TESTS=$(cat testsToRun.txt)
+            echo "APEX_TESTS=$TESTS" >> $GITHUB_ENV
+            echo "Tests to run: $TESTS"
+          else
+            echo "APEX_TESTS=all" >> $GITHUB_ENV
+            echo "No tests file found, defaulting to all tests."
+          fi
+
+      # Instalação do Salesforce CLI
+      - name: Install Salesforce CLI
+        run: |
+          wget https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz
+          mkdir ~/sfdx
+          tar xJf sf-linux-x64.tar.xz -C ~/sfdx --strip-components 1
+          echo "$HOME/sfdx/bin" >> $GITHUB_PATH
+          ~/sfdx/bin/sfdx version
+
+      # Instalação do plugin sfdx-git-delta (nova sintaxe)
+      - name: Installing sfdx git delta
+        run: | 
+          echo y | sf plugins install sfdx-git-delta
+          sf plugins
+
+      # Instalação do Java (necessário para etapas subsequentes)
+      - name: Installing java
+        run: |
+          sudo apt-get update
+          sudo apt install -y default-jdk
+
+      # Instalação do SFDX scanner (caso seja necessário para análises adicionais)
+      - name: Installing SFDX scanner
+        run: sf plugins install @salesforce/sfdx-scanner
+
+      # Recupera o arquivo de autenticação a partir dos secrets e realiza login na org conforme a branch
+      - name: Generate auth file and login to org
+        run: |
+          BASE_BRANCH="${{ github.ref_name }}"
+          if [ "$BASE_BRANCH" = "develop" ]; then
+            echo "Using secret auth file for Develop org..."
+            echo "${{ secrets.DEVELOP_AUTH_FILE }}" > sfdxAuthUrl.txt
+            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt -s
+          elif [ "$BASE_BRANCH" = "UAT" ]; then
+            echo "Using secret auth file for UAT org..."
+            echo "${{ secrets.UAT_AUTH_FILE }}" > sfdxAuthUrl.txt
+            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt -s
+          elif [ "$BASE_BRANCH" = "main" ]; then
+            echo "Using secret auth file for Production org..."
+            echo "${{ secrets.PROD_AUTH_FILE }}" > sfdxAuthUrl.txt
+            sf org login sfdx-url --sfdx-url-file sfdxAuthUrl.txt -s
+          else
+            echo "Branch not recognized for authentication."
+            exit 1
+          fi
+
+      # Cria o pacote delta com os metadados alterados
+      - name: Create delta packages for new, modified or deleted metadata
+        run: | 
+          mkdir changed-sources
+          sf sgd source delta --to "HEAD" --from "HEAD^" -o changed-sources/ --generate-delta -s force-app/
+
+      # Deploy efetivo: executa novamente os testes configurados e realiza a implantação real
+      - name: Deploy delta changes - run tests again
+        run: |
+          BASE_BRANCH="${{ github.ref_name }}"
+          if [ "$BASE_BRANCH" = "develop" ]; then
+            if [ "${APEX_TESTS}" != "all" ]; then
+              echo "Deploying to Develop org with specified tests: ${APEX_TESTS}"
+              sfdx force:source:deploy -p "changed-sources/force-app" --testlevel RunSpecifiedTests --tests "$APEX_TESTS" --json
+            else
+              echo "Deploying to Develop org running local tests..."
+              sfdx force:source:deploy -p "changed-sources/force-app" --testlevel RunLocalTests --json
+            fi
+          elif [ "$BASE_BRANCH" = "UAT" ]; then
+            if [ "${APEX_TESTS}" != "all" ]; then
+              echo "Deploying to UAT org with specified tests: ${APEX_TESTS}"
+              sf project deploy start --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$APEX_TESTS" --json
+            else
+              echo "Deploying to UAT org without running tests..."
+              sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests --json
+            fi
+          elif [ "$BASE_BRANCH" = "main" ]; then
+            echo "Deploying to Production (main branch) running all tests..."
+            sf project deploy start --source-dir changed-sources/force-app --test-level RunAllTestsInOrg --json
+          fi
+
+      # Caso haja mudanças destrutivas, faz o deploy das mesmas
+      #- name: Deploy destructive changes (if any)
+      #  run: |
+      #    if [ -d "changed-sources/destructiveChanges" ]; then
+      #      sfdx force:mdapi:deploy -d "changed-sources/destructiveChanges" --ignorewarnings
+      #    else
+      #      echo "No destructive changes found."
+      #    fi
+
+      # Limpeza do arquivo de autenticação para não deixar dados sensíveis expostos
+      - name: Clean up auth file
+        run: rm -f sfdxAuthUrl.txt
